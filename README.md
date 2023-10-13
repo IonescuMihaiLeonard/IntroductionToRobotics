@@ -5,5 +5,3 @@ Examples include, but are not limited to: "Introduction to Robotics laboratory h
   
 ## Homework 1
 TBA
-
-(...)
