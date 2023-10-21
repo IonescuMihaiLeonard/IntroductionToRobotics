@@ -1,0 +1,62 @@
+//Declaram constantele
+//Pinii pentru fiecare potentiometru
+const int potRPin = A0;
+const int potGPin = A1;
+const int potBPin = A2;
+//Pinii pentru fiecare led
+const int ledRPin = 11;
+const int ledGPin = 10;
+const int ledBPin = 9;
+//Declaram limite
+const int min_in = 1023;
+const int max_in = 0;
+const int min_out = 0;
+const int max_out = 255;
+//Declaram variabilele
+//Valoarea citita de la potentiometru
+unsigned int potRValue;
+unsigned int potGValue;
+unsigned int potBValue;
+//Valoarea care va fi trimisa catre led
+unsigned int ledRValue;
+unsigned int ledGValue;
+unsigned int ledBValue;
+
+void setup() {
+  //Setam starile pentru fiecare pin
+  //Pinii de intrare, adica potentiometrele
+  pinMode(potRPin, INPUT);
+  pinMode(potGPin, INPUT);
+  pinMode(potBPin, INPUT);
+  //Pinii de iesire, addica led-urile
+  pinMode(ledRPin, OUTPUT);
+  pinMode(ledGPin, OUTPUT);
+  pinMode(ledBPin, OUTPUT);
+  Serial.begin(9600);
+}
+ 
+void loop() {
+  //Urmeaza sa citim pozitia fiecarui potentiometru
+  potRValue = analogRead(potRPin);
+  potGValue = analogRead(potGPin);
+  potBValue = analogRead(potBPin);
+  //Urmeaza sa transformam datele de la potentiometru 1023 = 0 ... 0 = 255, deoarece atunci cand
+  //pun potentiometrul maxim stanga imi da valoarea de 1023 daca ii schimb bornele de 5V si GND
+  //se va inversa, va afisa 0
+  ledRValue = map(analogRead(potRPin), min_in, max_in, min_out, max_out);
+  ledGValue = map(analogRead(potGPin), min_in, max_in, min_out, max_out);
+  ledBValue = map(analogRead(potBPin), min_in, max_in, min_out, max_out);
+  //Urmeaza sa trimitem impulsurile pentru fiecare led
+  analogWrite(ledRPin, ledRValue);
+  analogWrite(ledGPin, ledGValue);
+  analogWrite(ledBPin, ledBValue);
+  //Urmeaza sa pritam culoarea pe care led=ul o arata in formatul (R, G, B)
+  Serial.print("(R, G, B) (");
+  Serial.print(ledRValue);
+  Serial.print(", ");
+  Serial.print(ledGValue);
+  Serial.print(", ");
+  Serial.print(ledBValue);
+  Serial.println(")");
+  
+}
