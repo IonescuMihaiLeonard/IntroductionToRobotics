@@ -2,7 +2,7 @@
 
 ## Commponents
 Unordered List :-
-*•RGB LED (At least 1)
+*•RGB LED (At least 1) \n
 *•Potentiometers (At least 3)
 *•Resistors and wires as needed
 
