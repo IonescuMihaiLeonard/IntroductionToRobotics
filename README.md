@@ -1,7 +1,7 @@
 # RGB LED Controller
 
 ## Commponents
-- [x]RGB LED (At least 1)
+- [ x ]RGB LED (At least 1)
 - [x]Potentiometers (At least 3)
 - [x]Resistors and wires as needed
 
