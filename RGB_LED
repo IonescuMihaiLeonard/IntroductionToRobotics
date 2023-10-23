@@ -47,9 +47,12 @@ void loop() {
   ledGValue = map(analogRead(potGPin), min_in, max_in, min_out, max_out);
   ledBValue = map(analogRead(potBPin), min_in, max_in, min_out, max_out);
   //Urmeaza sa trimitem impulsurile pentru fiecare led
-  analogWrite(ledRPin, ledRValue);
-  analogWrite(ledGPin, ledGValue);
-  analogWrite(ledBPin, ledBValue);
+  if(ledRValue >= 20)
+    analogWrite(ledRPin, ledRValue);
+  if(ledGValue >= 20)
+    analogWrite(ledGPin, ledGValue);
+  if(ledBValue >= 20)
+    analogWrite(ledBPin, ledBValue);
   //Urmeaza sa pritam culoarea pe care led=ul o arata in formatul (R, G, B)
   Serial.print("(R, G, B) (");
   Serial.print(ledRValue);
