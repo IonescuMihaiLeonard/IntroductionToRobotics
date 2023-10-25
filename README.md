@@ -4,5 +4,5 @@
   
 ## Homework 1
 RGB LED Controller
-## Homework 1
+## Homework 2
 Elevator Wanna Be
