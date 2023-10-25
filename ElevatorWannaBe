@@ -1,0 +1,156 @@
+//Declaram numarul de Etaje
+const int Floors = 3;
+//Declaram pinii la care se leaga LED-urile
+const int LedPins[] = {9, 10, 5};
+const int LedElvPin = 12;
+//Declaram Maximele LED-urilor
+const int LedOff = 0;
+const int LedMax = 255;
+//Declaram State-ul LED-urilor
+int LedState[] = {LedMax, LedOff, LedOff};
+byte LedElvState = HIGH;
+//Declaram ultimul etaj la care a fost liftul in cazul de start fiind 0
+int Last = 0;
+//Declaram timpul de blinking
+const int BlinkTime = 250;
+//Declaram pinii la care se leaga Butoanele 
+const int BtnPins[] = {4, 6, 7};
+//Declaram State-ul Butoanelor
+int BtnState[] = {HIGH, HIGH, HIGH};
+//Declaram pinul la care se leaga Buzzerul
+const int buzzerPin = 8;
+//Declaram durata calatoriei
+const int TravelDur = 2500; 
+//Declaram tone-urile buzzer-ului
+const int BuzzAriveTone = 4000;
+const int BuzzTravelTone = 7000;
+//Declaram duratele tone-urilor buzzer-ului
+const int BuzzAriveDur = 500;
+//Declaram baud-ul
+const int baud = 9600;
+//Pentru a prevenii debounce-ul
+byte reading[] = {HIGH, HIGH, HIGH};
+byte lastReading[] = {HIGH, HIGH, HIGH};
+unsigned int lastDebTime[] = {0, 0, 0};
+const int debDelay = 50;
+
+void setup() {
+  int i;
+  for(i=0; i<3; i++){
+    //Setam Pinii pe care se afla Butoanele ca INPUT
+    pinMode(BtnPins[i], INPUT_PULLUP);
+    //Setam Pinii pe care se afla LED-urile ca OUTPUT
+    pinMode(LedPins[i], OUTPUT);
+    analogWrite(LedPins[i], LedState[i]);
+  }
+  pinMode(LedElvPin, OUTPUT);
+  pinMode(buzzerPin, OUTPUT);
+  digitalWrite(LedElvPin, LedElvState);
+  //Deschidem Serial Monitor-ul
+  Serial.begin(baud); 
+}
+
+void pushBtn(int i);
+void transit(int i, int j);
+
+void loop() {
+//Trecem prin butoanele de la fiecare etaj
+  int i;
+  for(i=0; i<Floors; i++){
+    pushBtn(i);
+  }
+}
+
+void pushBtn(int i){
+  int j;
+  //Ne asiguram ca nu exista Debounce
+  reading[i] = digitalRead(BtnPins[i]);
+
+  if(reading[i] != lastReading[i]){
+    lastDebTime[i] = millis();
+  }
+  if((millis()-lastDebTime[i]) > debDelay){
+    
+    if(reading[i] != BtnState[i] && i != Last){
+      BtnState[i] = reading[i];
+      //La Apasarea butonului trecem prin urmatoarele instructiuni  
+      if(BtnState[i] == LOW){
+        if(LedState[i] == 0){
+         
+          unsigned long long StartTime = millis();
+          int PrevBlink = StartTime;
+          int Distance;
+          int LedM;
+          int TotalTravelDur;
+          //Calculam distanta incat sa stim daca liftul va urca 1 sau 2 etaje
+          if(Last > i)
+            Distance = Last - i;
+          else
+            Distance = i - Last;
+          LedM = Distance - 1;
+          TotalTravelDur = Distance * TravelDur;
+          //Pornim Buzzer-ul pe tonul de travel pentru tot restul calatoriei
+          tone(buzzerPin, BuzzTravelTone, TotalTravelDur);
+          while(millis() <= StartTime + TotalTravelDur){
+            //Facem Blink-ul ledului de stare a liftului
+            if(millis() > PrevBlink + BlinkTime){
+              LedElvState = !LedElvState;
+              digitalWrite(LedElvPin, LedElvState);
+              PrevBlink = millis();
+              
+            }
+            //Daca distanta este 1 vom face o tranzitie simpla intre ledurile etajelor la care este liftul si cel la care va ajunge
+            if(Distance == 1){
+              LedState[i] = map(millis() , StartTime, StartTime + TravelDur * Distance, LedOff, LedMax);
+              analogWrite(LedPins[i], LedState[i]);
+              LedState[Last] = LedMax - LedState[i];
+              analogWrite(LedPins[Last], LedState[Last]);
+            }
+            //Daca distanta este 2 vom face o tranzitie de la ledul de plecare la cel din mijloc si de la cel din mijloc la destinatie
+            else{
+              if(millis() < StartTime + TravelDur){
+                LedState[Last] = map(millis() , StartTime, StartTime + TravelDur, LedMax, LedOff);
+                analogWrite(LedPins[Last], LedState[Last]);
+                
+                LedState[LedM] = LedMax - LedState[Last];
+                analogWrite(LedPins[LedM], LedState[LedM]);
+              }
+              else{
+                LedState[Last] = LedOff;
+                analogWrite(LedPins[Last], LedState[Last]);
+              
+                LedState[LedM] = map(millis() , StartTime + TravelDur, StartTime + TravelDur * Distance, LedMax, LedOff);
+                analogWrite(LedPins[LedM], LedState[LedM]);
+
+                LedState[i] = LedMax - LedState[LedM];
+                analogWrite(LedPins[i], LedState[i]);
+              }  
+            }
+          }
+          //Aici ne asiguram ca nici unul dintre leduri cu exceptia celui la care liftul se afla nu va ramane aprins
+          if(Distance == 1){
+            LedState[Last] = LedOff;
+            analogWrite(LedPins[Last], LedState[Last]);
+          }
+          else{
+            LedState[Last] = LedOff;
+            analogWrite(LedPins[Last], LedState[Last]);
+            LedState[LedM] = LedOff;
+            analogWrite(LedPins[LedM], LedState[LedM]);   
+          }
+          LedState[i] = LedMax;
+          analogWrite(LedPins[i], LedState[i]);
+     
+          Last = i;
+          //Facem tonul de ajungere a liftului la etajul dorit
+          tone(buzzerPin, BuzzAriveTone, BuzzAriveDur);
+          //Ne asiguram ca ledul pentru stare a liftului ramane aprins
+          LedElvState = HIGH;
+          digitalWrite(LedElvPin, LedElvState);
+        }                   
+      }   
+    }
+  }
+  lastReading[i] = reading[i];
+
+}
