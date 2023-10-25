@@ -32,6 +32,6 @@ Design  a  control  system  that  simulates  a  3-floor  elevator  using  the  A
 
 
 ## YouTube Link
-  https://www.youtube.com/watch?v=XubC_vQ2RA8
+  [Video](https://youtu.be/SbkzdsgSVX0?si=waaQ8wh6dk2ZzqZX)https://youtu.be/SbkzdsgSVX0?si=waaQ8wh6dk2ZzqZX
 
   
