@@ -1,0 +1,190 @@
+//Joy-Stick
+const int VRxPin = A1;
+const int VRyPin = A0;
+const int SwPin = 2;
+int xValue = 0;
+int yValue = 0;
+bool swState = HIGH;
+int swPressTime = 0; 
+
+volatile bool swPressed = false;
+
+const int DebDelay = 100;
+unsigned int lastDebTime = 0;
+const int Reset = 2500;
+
+bool reading = HIGH;
+bool lastReading = HIGH;
+
+bool JoyMoved = 0;
+const int joySensitivity = 50;
+int minThreshold = 375;
+int maxThreshold = 625;
+//7Segment Display
+const int sevSegPins[] = {12, 13, 7, 6, 5, 10, 9, 8}; // {a, b, c, d, e, f, g, dp}
+const byte A = 0;
+const byte B = 1;
+const byte C = 2;
+const byte D = 3;
+const byte E = 4; 
+const byte F = 5;
+const byte G = 6;
+const byte DP = 7;
+const byte NONE = -1;  
+bool sevSegState[] = {LOW, LOW, LOW, LOW, LOW, LOW, LOW, LOW};
+const int SegLen = 8;
+//Variabile Auxiliare
+int i = 0;
+int baud = 9600;
+int CurentTime;
+
+int index = 7;  
+const int directions = 4;
+const int BlinkTime = 250;
+bool BlinkState = 0;
+unsigned long StartTime = 0;
+//Posible Moves
+int Moves[SegLen][directions]={
+//  UP, DOWN, LEFT, RIGHT
+  NONE,    G,    F,    B,//A  
+     A,    G,    F, NONE,//B
+     G,    D,    E,   DP,//C
+     G, NONE,    E,    C,//D
+     G,    D, NONE,    C,//E
+     A,    G, NONE,    B,//F
+     A,    D, NONE, NONE,//G
+  NONE, NONE,    C, NONE //DP  
+};
+enum moves {
+    M_UP,
+  M_DOWN,
+  M_LEFT,
+ M_RIGHT,
+    IDLE
+};
+moves state = IDLE;
+
+void setup() {
+  //Deschidem Serial Monitor
+  Serial.begin(baud);
+  //Declaram Joy-stick-ul ca fiind input
+  pinMode(VRxPin, INPUT_PULLUP);
+  pinMode(VRyPin, INPUT_PULLUP);
+  pinMode(SwPin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(SwPin), buttonPress, CHANGE);
+
+  //Declaram 7Segment Display-ul ca output
+  int i;
+  for (i=0; i<=SegLen; i++){
+    pinMode(sevSegPins[i], OUTPUT);
+  }
+}
+
+void loop() {
+  
+  CurentTime = millis();
+  if (state == IDLE){
+    //Partea de Movement
+    xValue = analogRead(VRxPin);
+    yValue = analogRead(VRyPin);
+    if(yValue + joySensitivity < minThreshold){
+      if(JoyMoved == 0){
+        if(Moves[index][M_LEFT]!=NONE){
+        state = M_LEFT;
+        } 
+      }      
+    }
+    else if(yValue - joySensitivity > maxThreshold){
+      if(JoyMoved == 0){
+        if(Moves[index][M_RIGHT]!=NONE){
+        state = M_RIGHT;
+        }
+      }      
+    }
+    else if(xValue + joySensitivity < minThreshold ){
+      if(JoyMoved == 0){
+        if(Moves[index][M_DOWN]!=NONE){
+        state = M_DOWN;
+        }
+      }  
+    }
+    else if(xValue - joySensitivity > maxThreshold){
+      if(JoyMoved == 0){
+        if(Moves[index][M_UP]!=NONE){
+        state = M_UP;
+        }
+      }
+    }
+    else{
+      JoyMoved = 0;
+    }
+    //Blinking-ul
+    if(CurentTime > StartTime + BlinkTime){
+      BlinkState = !BlinkState;
+      digitalWrite (sevSegPins[index], BlinkState);
+      StartTime = CurentTime;
+    }
+  }
+  else{
+    digitalWrite(sevSegPins[index], sevSegState[index]);
+    index = Moves[index][state];
+    JoyMoved = 1;
+    StartTime = CurentTime;
+    state = IDLE;
+  }
+  
+  //PrintJoy(xValue, yValue, swState);
+  //PrintSevSeg();
+  
+}
+
+//Interupt pentru verificarea butonului daca este "HOLD" sau "Short Press"
+void buttonPress(){
+  CurentTime = millis();
+  swState = digitalRead(SwPin);
+  
+  if(!swState){
+    if(!swPressed){
+      swPressTime = millis();
+      swPressed = true;
+    }
+    else if(CurentTime - swPressTime >= Reset){
+      swPressed = false;
+      //Partea de Resetare
+      int i;
+      for(i=0; i<=SegLen; i++){
+        sevSegState[i] = LOW;
+        digitalWrite(sevSegPins[i], sevSegState[i]);
+      }
+      index = 7;
+    }
+  }
+  else{
+    if(swPressed && CurentTime - swPressTime >= DebDelay){
+      //Partea de Desen
+      sevSegState[index] = !sevSegState[index];
+      digitalWrite(sevSegPins[index], sevSegState[index]);
+    }
+    swPressed = false;
+  }
+}
+
+//Afisam Pozita Joy-Stick-ului
+void PrintJoy(int x, int y, bool sw){
+  Serial.print("(x:");
+  Serial.print(x);
+  Serial.print(", y:");
+  Serial.print(y);
+  Serial.print(", sw:");
+  Serial.print(sw);
+  Serial.println(")");
+}
+//Afisam Starile 7SegmentDisplay-ului
+void PrintSevSeg(){
+  int i;
+  for (i=0; i<SegLen; i++){
+    Serial.print(sevSegState[i]);
+    Serial.print(" ");
+  }
+  Serial.println();
+}
