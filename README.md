@@ -6,3 +6,5 @@
 RGB LED Controller
 ## Homework 2
 Elevator Wanna Be
+## Homework 3
+7Segment Display Drawing
