@@ -8,3 +8,5 @@ RGB LED Controller
 Elevator Wanna Be
 ## Homework 3
 7Segment Display Drawing
+## Homework 4
+StopWatch timer
