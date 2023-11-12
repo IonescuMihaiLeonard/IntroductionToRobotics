@@ -28,4 +28,4 @@ The starting value of the 4 digit 7 segment display shouldbe ”000.0”.  Your 
 
 
 ## YouTube Link
- [ [Video](https://youtu.be/xDJeSaS9Vx0?si=Z8Rpvtngq318q_VQ)https://youtu.be/xDJeSaS9Vx0?si=Z8Rpvtngq318q_VQ]
+ [Video](https://www.youtube.com/watch?v=PrA_rYjAwjs)https://www.youtube.com/watch?v=PrA_rYjAwjs
