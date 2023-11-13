@@ -1,0 +1,297 @@
+byte a= LOW;
+
+
+
+//Define pins to the buttons
+const int button1Pin = 2; //Pin for the Start/Stop button
+const int button2Pin = 13; //Pin for the Reset button
+const int button3Pin = 3; //Pin for the Lap button
+// Define pin connections to the shift register
+const int latchPin = 11;  // Pin for latching data into the register (STCP)
+const int clockPin = 10;  // Pin for the shift register clock (SHCP)
+const int dataPin = 12;   // Pin for the serial data input to the shift register (DS)
+// Define control pins for the individual digits of the display
+const int segD1 = 4;  // Control pin for the first digit
+const int segD2 = 5;  // Control pin for the second digit
+const int segD3 = 6;  // Control pin for the third digit
+const int segD4 = 7;  // Control pin for the fourth digit
+// Constants for the register size in bits
+const byte regSize = 8;  // Define the register size to be 8 bits (1 byte)
+// Array of digit control pins
+int displayDigits[] = {
+  segD1, segD2, segD3, segD4
+};
+const int displayCount = 4;      // Number of digits in the display
+const int encodingsNumber = 10;  // Number of different character encodings
+// Array to store the binary encoding for each segment of a 7-segment display for the digits 0-9 and letters A - F
+int byteEncodings[encodingsNumber] = {
+  // Binary representations for each character
+  //A B C D E F G DP
+  B11111100,  // 0
+  B01100000,  // 1
+  B11011010,  // 2
+  B11110010,  // 3
+  B01100110,  // 4
+  B10110110,  // 5
+  B10111110,  // 6
+  B11100000,  // 7
+  B11111110,  // 8
+  B11110110,  // 9
+};
+
+unsigned long lastIncrement = 0;
+unsigned long delayCount = 100;  // Delay between updates (milliseconds)
+unsigned long number = 0;       // The number being displayed
+
+unsigned long currentTime;
+
+bool buttonResetState;
+bool buttonStartState;
+bool buttonLapState;
+
+volatile bool button1State = false;
+volatile bool button2State = false;
+volatile bool button3State = false;
+volatile unsigned long lastDebounceTimeButton1 = 0;
+volatile unsigned long lastDebounceTimeButton2 = 0;
+volatile unsigned long lastDebounceTimeButton3 = 0;  
+const unsigned long debounceDelay = 100;
+const unsigned long changeDelay = 350;
+
+int index = 0;
+const byte maxNumberOfLaps = 4;
+const byte minNumberOfLaps = 0;
+volatile int laps [maxNumberOfLaps] = {0};
+byte numberOfLap = 0;
+
+enum states {
+  Running,
+  Pause,
+  Reseted
+};
+states state = Pause;
+void setup() {
+  // Initialize the pins connected to the shift register as outputs
+  pinMode(latchPin, OUTPUT);
+  pinMode(clockPin, OUTPUT);
+  pinMode(dataPin, OUTPUT);
+  // Initialize the pins connected to the buttons as input Pullup
+  pinMode(button1Pin, INPUT_PULLUP);
+  pinMode(button2Pin, INPUT_PULLUP);
+  pinMode(button3Pin, INPUT_PULLUP);
+  // Interupts
+  attachInterrupt(digitalPinToInterrupt(button1Pin), startPause, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(button3Pin), lap, CHANGE);
+  // Initialize digit control pins and set them to LOW (off)
+  for (int i = 0; i < displayCount; i++) {
+    pinMode(displayDigits[i], OUTPUT);
+    digitalWrite(displayDigits[i], LOW);
+  }
+  // Begin serial communication for debugging purposes
+  Serial.begin(9600);
+}
+void loop() {
+//  for(int i = minNumberOfLaps; i < maxNumberOfLaps; i++){
+//    Serial.print(laps[i]);
+//    Serial.print(" ");
+//  }
+//    
+//  Serial.println();
+//  
+  currentTime = millis();  
+  switch (state){
+    case Pause:
+      buttonResetState=digitalRead(button2Pin);
+      if(!buttonResetState){
+        if(!button2State){
+          button2State = true;
+          lastDebounceTimeButton2 = currentTime;
+        }
+      }
+      else{
+        if(button2State && currentTime - lastDebounceTimeButton2 >= debounceDelay){
+          state = Reseted;
+        }
+        button2State = false;
+      }     
+      writeNumber(number);
+      break;
+    case Running:
+      if(millis() - lastIncrement > delayCount) {
+        ++number;
+        number %= 10000;
+        lastIncrement = millis();
+      }
+      writeNumber(number);
+      break;
+    case Reseted:
+      if(button1State == true){
+        if(currentTime - lastDebounceTimeButton1 >= changeDelay){
+          if(index + 1 < maxNumberOfLaps){
+            ++index;
+          }
+          else{
+            index = minNumberOfLaps;
+          }
+          lastDebounceTimeButton1 = currentTime;
+        }
+      }
+      else if(button3State == true){
+        if(currentTime - lastDebounceTimeButton3 >= changeDelay){
+          if(index - 1 >= minNumberOfLaps){
+            --index;   
+          }
+          else{
+            index = maxNumberOfLaps - 1;
+          }
+          lastDebounceTimeButton3 = currentTime;
+        }
+      }
+      writeNumber(laps[index]);
+      buttonResetState=digitalRead(button2Pin);
+      if(!buttonResetState){
+        if(!button2State){
+          button2State = true;
+          lastDebounceTimeButton2 = currentTime;
+        }
+      }
+      else{
+        if(button2State && currentTime - lastDebounceTimeButton2 >= debounceDelay){
+          number = 0;
+          numberOfLap = 0;
+          for(int i = minNumberOfLaps; i < maxNumberOfLaps; i++){
+            laps[i] = 0;
+          }
+          state = Pause;  
+        }
+        button2State = false;
+      }      
+      break; 
+  }
+
+  
+}
+void writeReg(int digit) {
+  // Prepare to shift data by setting the latch pin low
+  digitalWrite(latchPin, LOW);
+  // Shift out the byte representing the current digit to the shift register
+  shiftOut(dataPin, clockPin, MSBFIRST, digit);
+  // Latch the data onto the output pins by setting the latch pin high
+  digitalWrite(latchPin, HIGH);
+}
+void activateDisplay(int displayNumber) {
+  // Turn off all digit control pins to avoid ghosting
+  for (int i = 0; i < displayCount; i++) {
+    digitalWrite(displayDigits[i], HIGH);
+  }
+  // Turn on the current digit control pin
+  digitalWrite(displayDigits[displayNumber], LOW);
+}
+/// Write number fuction that fills the rest of the 7segs with 0 
+void writeNumber(int number) {
+  int currentNumber = number;
+  int displayDigit = 3;
+  int lastDigit;
+  while(displayDigit >= 0) {
+    lastDigit = currentNumber % 10;
+    activateDisplay(displayDigit);
+    if(displayDigit == 2){
+      writeReg(byteEncodings[lastDigit]+1);
+    }
+    else{
+      writeReg(byteEncodings[lastDigit]);
+    }
+    --displayDigit;
+    currentNumber /= 10;
+    writeReg(B00000000);
+  }  
+}
+
+//Interupts Functions with debounce 
+void startPause(){
+  currentTime = millis();
+  buttonStartState=digitalRead(button1Pin);
+
+  if(state != Reseted){
+    if(!buttonStartState){
+      if(!button1State){
+        button1State = true;
+        lastDebounceTimeButton1 = currentTime;
+      }
+    }
+    else{
+      if(button1State && currentTime - lastDebounceTimeButton1 >= debounceDelay){
+        if(state == Running){
+          state = Pause;
+        }
+        else{
+          state = Running;
+        }
+      }
+      button1State = false;
+    }
+  }
+  else{
+    if(!buttonStartState){
+      if(!button1State){
+        button1State = true;
+        lastDebounceTimeButton1 = currentTime;
+      }
+    }
+    else{
+      if(button1State && currentTime - lastDebounceTimeButton1 >= debounceDelay){
+        if(index + 1 < maxNumberOfLaps){
+          ++index;
+        }
+        else{
+         index = minNumberOfLaps;
+        }
+      }
+      button1State = false;
+    }
+  }
+}
+
+
+
+
+
+void lap(){
+  currentTime = millis();
+  buttonLapState=digitalRead(button3Pin);
+  if(state == Running){
+    if(!buttonLapState){
+      if(!button3State){
+        button3State = true;
+        lastDebounceTimeButton3 = currentTime;
+      }
+    }
+    else{
+      if(button3State && currentTime - lastDebounceTimeButton3 >= debounceDelay){
+        laps[numberOfLap%maxNumberOfLaps] = number;
+        ++numberOfLap;
+        state =  Running;
+      }
+      button3State = false;
+    }
+  }
+  else{
+    if(!buttonLapState){
+      if(!button3State){
+        button3State = true;
+        lastDebounceTimeButton3 = currentTime;
+      }
+    }
+    else{
+      if(button3State && currentTime - lastDebounceTimeButton3 >= debounceDelay){
+        if(index - 1 >= minNumberOfLaps){
+          --index;   
+        }
+        else{
+          index = maxNumberOfLaps - 1;
+        }
+      }
+      button3State = false;
+    }
+  }
+}
