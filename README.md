@@ -4,10 +4,11 @@
 - Resistors and wires as needed
 
 ## Requirement
-The starting value of the 4 digit 7 segment display shouldbe ”000.0”.  Your buttons should have the following functionalities:
-–  Button 1:  Start / pause. 
--  Button 2:  Reset  (if  in  pause  mode).   Reset  saved  laps  (if  in  lapviewing mode).
--  Button 3:  Save lap (if in counting mode), cycle through last savedlaps (up to 4 laps).
+The starting value of the 4 digit 7 segment display shouldbe ”000.0”. 
+Your buttons should have the following functionalities :
+1. Button 1  Start / pause. 
+2. Button 2  Reset  (if  in  pause  mode).   Reset  saved  laps  (if  in  lapviewing mode).
+3. Button 3  Save lap (if in counting mode), cycle through last savedlaps (up to 4 laps).
 ## Workflow
 1.  Display shows ”000.0”.  When pressing theStartbutton, the timershould start.
 2.   During timer counter, each time you press the lap button, you shouldsave  that  timer’s  value  in  memory  (not  persistent,  it  is  OK  to  bedeleted upon reset), up to 4 laps (or more if you want); pressing the5th  time  should  override  the  1st  saved  one.   If  you  press  the  resetbutton while timer works, nothing happens.  If you press the pausebutton, the timer stops.
