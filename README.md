@@ -5,8 +5,8 @@
 
 ## Requirement
 The starting value of the 4 digit 7 segment display shouldbe ”000.0”.  Your buttons should have the following functionalities:
-–  Button 1.Start / pause. 
--  Button 2:   Reset  (if  in  pause  mode).   Reset  saved  laps  (if  in  lapviewing mode).
+–  Button 1:  Start / pause. 
+-  Button 2:  Reset  (if  in  pause  mode).   Reset  saved  laps  (if  in  lapviewing mode).
 -  Button 3:  Save lap (if in counting mode), cycle through last savedlaps (up to 4 laps).
 ## Workflow
 1.  Display shows ”000.0”.  When pressing theStartbutton, the timershould start.
