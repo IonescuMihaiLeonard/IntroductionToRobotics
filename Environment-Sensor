@@ -1,0 +1,572 @@
+#include <EEPROM.h>
+//EEPROM MAP
+//0  - 0  sensorsSamplingInterv
+//1  - 2  ultrasonicThreshold
+//3  - 4  LDRThreshold
+//5  - 44 ultrasonic
+//45 - 84 LDR
+//85 - 85 automaticLED
+//86 - 86 rValue
+//87 - 87 gValue
+//88 - 88 bValue
+
+
+const byte sensorsSamplingIntervEEPROM = 0;
+const byte ultrasonicThresholdEEPROM = 1;
+const byte LDRThresholdEEPROM = 3;
+const byte ultrasonicReadingsStartEEPROM = 5;
+const byte ultrasonicReadingsEndEEPROM = 44;
+const byte LDRReadingsStartEEPROM = 45;
+const byte LDRReadingsEndEEPROM = 84;
+const byte automaticLEDEEPROM = 85;
+const byte rValueEEPROM = 86;
+const byte gValueEEPROM = 87;
+const byte bValueEEPROM = 88;
+//Baud for serial Monitor
+const int baud = 9600;
+//RGB LED
+const byte rPin = 9;
+const byte gPin = 10;
+const byte bPin = 11;
+
+byte rValue = 0;
+byte gValue = 0;
+byte bValue = 0;
+
+const byte ledOn = 20;
+
+//Light Sensor
+const byte lightSPin = A0;
+
+
+//Distance Sensor
+const byte triggerPin = 6;
+const byte echoPin = 5;
+
+//Menu
+bool mMenu = 0;
+bool lMenu = 0;
+bool eMenu = 0;
+bool currentLED = 1;
+
+byte readByteMainMenu = 0;
+byte readByteLeafMenu = 0;
+bool leafMenu = 0;
+//Sensor Settings
+byte sensorsSamplingInterv ;
+const int minSamplingInverv = 0;
+const int maxSamplingInverv = 11;
+const int defaultSamplingInverv = 5;
+int ultrasonicThreshold;
+const int minUltrasonicThreshold = 100;
+const int maxUltrasonicThreshold = 300;
+const int defaultUltrasonicThreshold = 100;
+int LDRThreshold;
+const int minLDRThreshold = 50;
+const int maxLDRThreshold = 250;
+const int defaultLDRThreshold = 250;
+
+const int sensorReadings = 10;
+
+
+//RGB LED Control
+bool automaticLED = 0;
+
+//Auxiliar
+const byte minNumberValue = 48;
+const byte newLine = 10;
+const int second = 1000;
+
+int currentTime = millis();
+int lastReading = currentTime;
+
+float ultrasonicStoredValues[sensorReadings] = {0};
+float LDRStoredValues[sensorReadings] = {0};
+int indexStored = 0;
+
+void setup() {
+  Serial.begin(baud);
+  pinMode(rPin, OUTPUT);
+  pinMode(gPin, OUTPUT);
+  pinMode(bPin, OUTPUT);
+
+  pinMode(triggerPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  EEPROM.get(sensorsSamplingIntervEEPROM, sensorsSamplingInterv);
+  EEPROM.get(ultrasonicThresholdEEPROM, ultrasonicThreshold);
+  EEPROM.get(LDRThresholdEEPROM, LDRThreshold);
+  for (byte index = 0; index < sensorReadings; index++) {
+    EEPROM.get(ultrasonicReadingsStartEEPROM + indexStored * 4, ultrasonicStoredValues[index]);
+    EEPROM.get(LDRReadingsStartEEPROM + indexStored * 4, LDRStoredValues[index]);
+  }
+  automaticLED = EEPROM.read(automaticLEDEEPROM);
+  rValue = EEPROM.read(rValueEEPROM);
+  gValue = EEPROM.read(gValueEEPROM);
+  bValue = EEPROM.read(bValueEEPROM);
+  Serial.println(ultrasonicThreshold);
+  Serial.println(LDRThreshold);
+}
+
+void loop() {
+  menu();
+  led();
+  currentTime = millis();
+  if (currentTime - lastReading >= sensorsSamplingInterv * second) {
+    lastReading = currentTime;
+    ultrasonicStoredValues[indexStored % sensorReadings] = distance();
+    LDRStoredValues[indexStored % sensorReadings] = light();
+    ++indexStored;
+    EEPROM.put(ultrasonicReadingsStartEEPROM + indexStored * 4 , ultrasonicStoredValues[indexStored % sensorReadings]);
+    EEPROM.put(LDRReadingsStartEEPROM + indexStored * 4 , LDRStoredValues[indexStored % sensorReadings]);
+  }
+}
+
+float light() {
+  float lightSValue = analogRead(lightSPin);
+  return lightSValue;
+}
+float distance() {
+  digitalWrite(triggerPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(triggerPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(triggerPin, LOW);
+  float duration = pulseIn(echoPin, HIGH);
+  float distance = duration * 0.034 / 2;
+  return distance;
+}
+
+void menu() {
+
+  printMainMenu();
+
+  if (Serial.available() > 0) {
+    if (!leafMenu) {
+      readByteMainMenu = Serial.read();
+      if (readByteMainMenu != newLine) {
+        readByteMainMenu -= minNumberValue;
+        leafMenu = 1;
+      }
+    }
+    if (leafMenu)
+    {
+      switch (readByteMainMenu) {
+        case 0:
+          leafMenu = 0;
+          break;
+        case 1:
+          sensorSettings();
+          break;
+        case 2:
+          resetLoggerData();
+          break;
+        case 3:
+          systemStatus();
+          break;
+        case 4:
+          RGBLEDControl();
+          break;
+        default:
+          Serial.println("Trimite-ti un numar intre 1 si 4");
+          break;
+      }
+    }
+  }
+}
+
+void printMainMenu() {
+  if (!mMenu) {
+    clearSerialMonitor();
+    Serial.println("MENU");
+    Serial.println("--------------------");
+    Serial.println("1. Sensor Settings  ");
+    Serial.println("2. Reset Logger Data");
+    Serial.println("3. System Status    ");
+    Serial.println("4. RGB LED Control  ");
+    mMenu = 1;
+  }
+}
+
+void sensorSettings() {
+  if (!lMenu) {
+    clearSerialMonitor();
+    Serial.println("1. Sensor Settings              ");
+    Serial.println("┣-------------------------------");
+    Serial.println("┣-1.1 Sensors Sampling Interval ");
+    Serial.println("┣-1.2 Ultrasonic Alert Threshold");
+    Serial.println("┣-1.3 LDR Alert Threshold       ");
+    Serial.println("┕-1.4 Back                      ");
+    lMenu = 1;
+  }
+
+  if (!readByteLeafMenu) {
+    if (Serial.available() > 0) {
+      byte ByteLeafMenu = Serial.read();
+      if (ByteLeafMenu != newLine) {
+        readByteLeafMenu = ByteLeafMenu - minNumberValue;
+      }
+    }
+  }
+  switch (readByteLeafMenu) {
+    case 0:
+      break;
+    case 1:
+      sensorsSamplingInterval();
+      break;
+    case 2:
+      ultrasonicAlertThreshold();
+      break;
+    case 3:
+      LDRAlertThreshold();
+      break;
+    case 4:
+      backMain();
+      break;
+    default:
+      Serial.println("Trimite-ti un numar intre 1 si 4");
+      break;
+  }
+
+
+}
+void sensorsSamplingInterval() {
+  int readInt;
+  byte done = 0;
+  if (!eMenu) {
+    Serial.println("Insert an integer value between 1 and 10 seconds(default is 5):");
+    eMenu = 1;
+  }
+  if (eMenu) {
+    if (Serial.available() > 0) {
+      readInt = Serial.parseInt();
+      //Serial.read();
+      if (readInt > minSamplingInverv && readInt < maxSamplingInverv) {
+        sensorsSamplingInterv  = readInt;
+        done = 1;
+      }
+    }
+  }
+  if (done) {
+    eMenu = 0;
+    EEPROM.update(sensorsSamplingIntervEEPROM, sensorsSamplingInterv);
+    backLeaf();
+  }
+
+}
+void ultrasonicAlertThreshold() {
+  int readInt;
+  byte done = 0;
+  if (!eMenu) {
+    Serial.println("Insert an integer value between 100 and 300 seconds(default is 100):");
+    eMenu = 1;
+  }
+  if (eMenu) {
+    if (Serial.available() > 0) {
+      readInt = Serial.parseInt();
+      if (readInt > minUltrasonicThreshold && readInt < maxUltrasonicThreshold) {
+        ultrasonicThreshold  = readInt;
+        done = 1;
+      }
+    }
+  }
+  if (done) {
+    eMenu = 0;
+    EEPROM.put(ultrasonicThresholdEEPROM, ultrasonicThreshold);
+    backLeaf();
+  }
+}
+void LDRAlertThreshold() {
+  int readInt;
+  byte done = 0;
+  if (!eMenu) {
+    Serial.println("Insert an integer value between 50 and 250 seconds(default 50):");
+    eMenu = 1;
+  }
+  if (eMenu) {
+    if (Serial.available() > 0) {
+      readInt = Serial.parseInt();
+      //Serial.read();
+      if (readInt > minLDRThreshold && readInt < maxLDRThreshold) {
+        LDRThreshold  = readInt;
+        done = 1;
+      }
+    }
+  }
+  if (done) {
+    eMenu = 0;
+    EEPROM.put(LDRThresholdEEPROM, LDRThreshold);
+    backLeaf();
+  }
+
+}
+
+
+void resetLoggerData() {
+  if (!lMenu) {
+    clearSerialMonitor();
+    Serial.println("2. Reset Logger Data");
+    Serial.println("┣-------------------");
+    Serial.println("┣-2.1 Yes           ");
+    Serial.println("┕-2.2 No            ");
+    lMenu = 1;
+  }
+  if (Serial.available() > 0) {
+    readByteLeafMenu = Serial.read();
+    if (readByteLeafMenu != newLine) {
+      readByteLeafMenu -= minNumberValue;
+      switch (readByteLeafMenu) {
+        case 0:
+          break;
+        case 1:
+          yes();
+          break;
+        case 2:
+          no();
+          break;
+        default:
+          Serial.println("Trimite-ti un numar intre 1 si 2");
+          break;
+      }
+    }
+  }
+}
+void yes() {
+  for (int index = ultrasonicReadingsStartEEPROM; index <= ultrasonicReadingsEndEEPROM; index++) {
+    EEPROM.update(index, 0);
+  }
+  for (int index = LDRReadingsStartEEPROM; index <= LDRReadingsEndEEPROM; index++) {
+    EEPROM.update(index, 0);
+  }
+  backMain();
+}
+void no() {
+  backMain();
+}
+
+void systemStatus() {
+  if (!lMenu) {
+    clearSerialMonitor();
+    Serial.println("3. System Status              ");
+    Serial.println("┣-----------------------------");
+    Serial.println("┣-3.1 Current Sensor Readings ");
+    Serial.println("┣-3.2 Current Sensor Settings ");
+    Serial.println("┣-3.3 Display Logged Data     ");
+    Serial.println("┕-3.4 Back                    ");
+    lMenu = 1;
+  }
+  if (!readByteLeafMenu) {
+    if (Serial.available() > 0) {
+      int ByteLeafMenu = Serial.parseInt();
+      Serial.read();
+      if (ByteLeafMenu != newLine) {
+        readByteLeafMenu = ByteLeafMenu;
+      }
+    }
+  }
+  switch (readByteLeafMenu) {
+    case 0:
+      break;
+    case 1:
+      currentSensorReadings();
+      break;
+    case 2:
+      currentSensorSettings();
+      break;
+    case 3:
+      displayLoggedData();
+      break;
+    case 4:
+      backMain();
+      break;
+    default:
+      Serial.println("Trimite-ti un numar intre 1 si 4");
+      readByteLeafMenu = 0;
+      break;
+
+  }
+}
+void currentSensorReadings() {
+
+  Serial.print("Light: ");
+  Serial.print(light());
+  Serial.print("  ");
+  Serial.print("Distance: ");
+  Serial.println(distance());
+  int readByte;
+  byte exited = 0;
+  if (Serial.available() > 0) {
+    readByte = Serial.parseInt();
+    if (readByte == 5) {
+      exited = true;
+    }
+  }
+  if (exited) {
+    backLeaf();
+  }
+}
+void currentSensorSettings() {
+  Serial.print("Sampling Interval:");
+  Serial.println(sensorsSamplingInterv);
+  Serial.print("Ultrasonic Threshold:");
+  Serial.println(ultrasonicThreshold);
+  Serial.print("LDR Threshold:");
+  Serial.println(LDRThreshold);
+
+  int readByte;
+  byte exited = 0;
+  if (Serial.available() > 0) {
+    readByte = Serial.parseInt();
+    if (readByte == 5) {
+      exited = true;
+    }
+  }
+  if (exited) {
+    backLeaf();
+  }
+}
+void displayLoggedData() {
+  for (int index = 0; index < sensorReadings; index++) {
+    Serial.print(index);
+    Serial.print("  Distance:");
+    Serial.print(ultrasonicStoredValues[index]);
+    Serial.print("  Light:");
+    Serial.println(LDRStoredValues[index]);
+  }
+
+  backLeaf();
+}
+
+
+void RGBLEDControl() {
+  if (!lMenu) {
+    clearSerialMonitor();
+    Serial.println("4. RGB LED Control                ");
+    Serial.println("┣---------------------------------");
+    Serial.println("┣-4.1 Manual Color Control        ");
+    Serial.println("┣-4.2 LED: Toggle Automatic ON/OFF");
+    Serial.println("┕-4.3 Back                        ");
+    lMenu = 1;
+  }
+  if (!readByteLeafMenu) {
+    if (Serial.available() > 0) {
+      int ByteLeafMenu = Serial.parseInt();
+      Serial.read();
+      if (ByteLeafMenu != newLine) {
+        readByteLeafMenu = ByteLeafMenu;
+      }
+    }
+  }
+  switch (readByteLeafMenu) {
+    case 0:
+      break;
+    case 1:
+      manualColorControl();
+      break;
+    case 2:
+      toggleAutomatic();
+      break;
+    case 3:
+      readByteMainMenu = 0;
+      readByteLeafMenu = 0;
+      mMenu = 0;
+      lMenu = 0;
+      break;
+    default:
+      Serial.println("Trimite-ti un numar intre 1 si 3");
+      readByteLeafMenu = 0;      
+      break;
+  }
+}
+void manualColorControl() {
+  if (automaticLED) {
+    Serial.println("The LED is automaticly controled");
+    backLeaf();
+  }
+  else {
+    int readInt1, readInt2, readInt3;
+    byte done = 0;
+    if (!eMenu) {
+      Serial.println("Insert 3 integer values between 0 and 255:");
+      eMenu = 1;
+    }
+    if (eMenu) {
+      if (Serial.available() > 0) {
+        readInt1 = Serial.parseInt();
+        readInt2 = Serial.parseInt();
+        readInt3 = Serial.parseInt();
+        
+        if ((readInt1 >= 0 && readInt1 <= 255) && (readInt2 >= 0 && readInt2 <= 255) && (readInt3 >= 0 && readInt3 <= 255)) {
+          rValue  = readInt1;
+          gValue  = readInt1;
+          bValue  = readInt1;
+          done = 1;
+        }
+      }
+    }
+
+    if (done) {
+      eMenu = 0;
+      EEPROM.update(rValueEEPROM, rValue);
+      EEPROM.update(gValueEEPROM, gValue);
+      EEPROM.update(bValueEEPROM, bValue);
+      backLeaf();
+    }
+  }
+}
+void toggleAutomatic() {
+  automaticLED = !automaticLED;
+  analogWrite(rPin, 0);
+  analogWrite(gPin, 0);
+  analogWrite(bPin, 0);
+  EEPROM.update(automaticLEDEEPROM, automaticLED);
+  backLeaf();
+}
+void led(){
+  if(!automaticLED){
+    analogWrite(rPin, rValue);
+    analogWrite(gPin, gValue);
+    analogWrite(bPin, bValue);
+  }
+  else
+  {
+    if(light()>= LDRThreshold && distance()>= ultrasonicThreshold){
+      rValue = 0;
+      gValue = 255;
+      bValue = 0;
+      analogWrite(rPin, rValue);
+      analogWrite(gPin, gValue);
+      analogWrite(bPin, bValue);
+    }
+    else{
+      rValue = 255;
+      gValue = 0;
+      bValue = 0;
+      analogWrite(rPin, rValue);
+      analogWrite(gPin, gValue);
+      analogWrite(bPin, bValue);
+    }
+  
+    EEPROM.update(rValueEEPROM, rValue);
+    EEPROM.update(gValueEEPROM, gValue);
+    EEPROM.update(bValueEEPROM, bValue);
+  }
+}
+
+
+void backLeaf() {
+  lMenu = 0;
+  readByteLeafMenu = 0;
+}
+void backMain() {
+  readByteMainMenu = 0;
+  readByteLeafMenu = 0;
+  mMenu = 0;
+  lMenu = 0;
+}
+
+
+
+void clearSerialMonitor() {
+  Serial.print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+}
