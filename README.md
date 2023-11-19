@@ -25,6 +25,6 @@ Specifically,you  need  to  read  the  potentiometer’s  value  with  Arduino  
 
 
 ## YouTube Link
-[  https://www.youtube.com/watch?v=XubC_vQ2RA8](https://youtu.be/KXYdTyPgNpM)https://youtu.be/KXYdTyPgNpM)
+[  https://www.youtube.com/watch?v=XubC_vQ2RA8](https://youtu.be/KXYdTyPgNpM)
 
   
