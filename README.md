@@ -1,14 +1,21 @@
-# Introduction to Robotics (2023 - 2024)
+# Robotix-Matrix
 
 
+##  Components Required
+-  Arduino Uno Board
+-  Joystick
+-  Button
+-  8x8 LED Matrix
+-  MAX7219•Resistors and capacitors as needed
+-  Breadboard and connecting wires
+-  LCD Screen 2x16
+-  Potentiometer
+-  Buzzer
   
-## Homework 1
-RGB LED Controller
-## Homework 2
-Elevator Wanna Be
-## Homework 3
-7Segment Display Drawing
-## Homework 4
-StopWatch timer
-## Homework 5
-Environment Sensor
+## Insipiration
+Bomberman video : www.youtube.com/watch?v=2xErEj86Yd8
+
+
+## Setup
+![first photo](1.jpg)
+![second photo](2.jpg)
