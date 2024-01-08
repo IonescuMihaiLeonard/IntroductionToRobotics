@@ -17,5 +17,5 @@ Bomberman video : www.youtube.com/watch?v=2xErEj86Yd8
 
 
 ## Setup
-![first photo](1.jpg)
-![second photo](2.jpg)
+![first photo](resurse/1.jpg)
+![second photo](resurse/2.jpg)
